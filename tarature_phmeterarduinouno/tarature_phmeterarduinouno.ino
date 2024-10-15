@@ -29,6 +29,7 @@ GravityTDS gravityTds;
   1. A sensore stabilizzato, scrivere nel Serial Monitor "enter"
   2. Scrivere successivamente "cal:" con in aggiunta la conducibilità della sostanza esaminata
     in uS/cm / 1.56 (per esempio se la conducibilità è 1500 uS/cm bisogna scrivere "cal: 961")
+  3. Scrivere infine exit e premere invio per salvare la calibrazione
 */ 
 
 
