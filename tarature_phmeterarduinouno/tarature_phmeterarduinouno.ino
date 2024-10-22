@@ -1,12 +1,12 @@
+#include <ArduinoJson.h>
+#include <ArduinoJson.hpp>
 
-  float tdsValue;
-  float temperature;
+float tdsValue;
+float temperature;
 
 
 //inizializzazione sensore temperatura 
 #include <DS18B20.h>
-#define LOW_ALARM 15
-#define HIGH_ALARM 35
 DS18B20 ds(3);
 uint8_t address[] = {40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
@@ -32,23 +32,21 @@ GravityTDS gravityTds;
   3. Scrivere infine exit e premere invio per salvare la calibrazione
 */ 
 
-
+// pH
+// temperatura
+// conducimetro
 
 
   float pHValue;
-  bool acidValue;
-  bool basicValue;
-  bool neutralValue;
 
 
 //Alcune variabili e parametri necessari per il Sensore
 #define SensorPin A5          //pH meter Analog output to Arduino Analog Input 0
 #define Offset 0.00            //deviation compensate
-#define samplingInterval 20
-#define printInterval 800
-#define ArrayLenth  40    //times of collection
-int pHArray[ArrayLenth];   //Store the average value of the sensor feedback
-int pHArrayIndex=0;
+
+#define ArrayLength  40    //times of collection
+int pHArray[ArrayLength]; 
+int tempArray[ArrayLength];  //Store the average value of the sensor feedback
 
 //Parametri necessari per la linearizzazione
 float calibph7=1.18;
@@ -64,8 +62,8 @@ void setup() {
 
   
   gravityTds.setPin(TdsSensorPin);
-  gravityTds.setAref(3.3);  //reference voltage on ADC, default 5.0V on Arduino UNO 
-  gravityTds.setAdcRange(4096);  //1024 for 10bit ADC;4096 for 12bit ADC 
+  gravityTds.setAref(5.0);  //reference voltage on ADC, default 5.0V on Arduino UNO 
+  gravityTds.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC 
   gravityTds.begin();  //initialization 
  
 
@@ -75,67 +73,49 @@ void setup() {
   
 }
 
+// VERO -> pH; FALSO -> TDS
+
+StaticJsonDocument<200> jsonBuffer;
+bool turno = false;
+const int READ_INTERVAL = 20;
 void loop() {
-static unsigned long samplingTime = millis();
+  static unsigned long samplingTime = millis();
   static unsigned long printTime = millis();
   static float voltage;
   
-  if(millis()-samplingTime > samplingInterval){
-    pHArray[pHArrayIndex++]=analogRead(SensorPin);
-    if(pHArrayIndex==ArrayLenth)pHArrayIndex=0;
-    //Serial.print(avergearray(pHArray, ArrayLenth));
-    //Calcolo del valore del pH
-    voltage = avergearray(pHArray, ArrayLenth)*3.3/1024;
-    pHValue = m*voltage+b;
-    samplingTime=millis();
-  }
+  if(millis()-samplingTime > READ_INTERVAL){
 
-  Serial.println(analogRead(A5));
-  
-  //Every 800 milliseconds, print a numerical, convert the state of the LED indicator
-  if(millis() - printTime > printInterval){   
-    Serial.print("Voltage:");
-      Serial.print(voltage,2);
-    Serial.print("    pH value: ");
-      Serial.println(pHValue,2);
-    printTime=millis();
+    for (int i = 0; i < ArrayLength; i++) {
+      tempArray[i] = ds.getTempC();
+      delay(20);
+    }
+    temperature = averagearray(tempArray, ArrayLength);
+
+ 
+    for (int i = 0; i < ArrayLength; i++) {
+      pHArray[i]=analogRead(SensorPin);
+      delay(20);
+    }
+    voltage = averagearray(pHArray, ArrayLength)*5.0/1024;
+    pHValue = m*voltage+b;
+
+    samplingTime=millis();
+
+    gravityTds.setTemperature(temperature);
+    gravityTds.update();
+    tdsValue = gravityTds.getTdsValue(); 
+     
+
+    jsonBuffer["temperatura"] = temperature;
+    jsonBuffer["pH"] = pHValue;
+    jsonBuffer["conducimetro"] = tdsValue*1.56;
+    sendData(jsonBuffer);
   }
   //Gestione del display e delle variabili collegate alla dashboard a seconda della sostanza
   //Verifica soluzione neutra
-  if(pHValue >= 6.7 && pHValue <= 7.3){
-  
-  acidValue=false;
-  basicValue=false;
-  neutralValue=true;
-  
-
-  } else if(pHValue < 6.7 && pHValue > 3.0){
-  
-  acidValue=true;
-  basicValue=false;
-  neutralValue=false;
-
-  } else if(pHValue > 7.3){
-  
-  acidValue=false;
-  basicValue=true;
-  neutralValue=false;
-  
-
-    //Qualora non ci fosse la sostanza deve essere segnalato sul display
-  } else {
-    
-  acidValue=false;
-  basicValue=false;
-  neutralValue=false;
-   
-  }
-  delay(500);
   // Your code here 
-  temperature = ds.getTempC();
-  gravityTds.setTemperature(temperature);
-  gravityTds.update();
-  tdsValue = gravityTds.getTdsValue();
+  
+  /*
   Serial.print(tdsValue,0);
   Serial.print(" ppm - ");
   Serial.print(tdsValue*1.56,0);
@@ -147,14 +127,23 @@ static unsigned long samplingTime = millis();
   } else {
     Serial.println();
   }
-  delay(1000);
+  */
 }
 
-double avergearray(int* arr, int number){
+void sendData(StaticJsonDocument<200> &jBuff){
+  if (jBuff.isNull())
+    return;
+  serializeJson(jBuff, Serial); // Serializza il buffer JSON e lo invia sulla seriale
+  Serial.println(); // Aggiunge un newline alla fine del messaggio
+  
+  jBuff.clear(); // Pulisce il buffer JSON per il prossimo utilizzo
+}
+
+double averagearray(int* arr, int number){
   int i;
   int max,min;
   double avg;
-  long amount=0;
+  double amount=0;
   if(number<=0){
     Serial.println("Error number for the array to avraging!/n");
     return 0;
@@ -189,41 +178,3 @@ double avergearray(int* arr, int number){
   }//if
   return avg;
 }
-
-/*
-  Since BasicValue is READ_WRITE variable, onBasicValueChange() is
-  executed every time a new value is received from IoT Cloud.
-*/
-void onBasicValueChange()  {
-  // Add your code here to act upon BasicValue change
-}
-
-/*
-  Since AcidValue is READ_WRITE variable, onAcidValueChange() is
-  executed every time a new value is received from IoT Cloud.
-*/
-void onAcidValueChange()  {
-  // Add your code here to act upon AcidValue change
-}
-
-/*
-  Since NeutralValue is READ_WRITE variable, onNeutralValueChange() is
-  executed every time a new value is received from IoT Cloud.
-*/
-void onNeutralValueChange()  {
-  // Add your code here to act upon NeutralValue change
-}
-
-
-
-
-/*
-  Since PHValue is READ_WRITE variable, onPHValueChange() is
-  executed every time a new value is received from IoT Cloud.
-*/
-void onPHValueChange()  {
-  // Add your code here to act upon PHValue change
-}
-
-
-
