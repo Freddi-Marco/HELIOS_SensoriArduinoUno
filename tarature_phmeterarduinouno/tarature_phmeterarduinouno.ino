@@ -77,7 +77,7 @@ void setup() {
 
 StaticJsonDocument<200> jsonBuffer;
 bool turno = false;
-const int READ_INTERVAL = 20;
+const int READ_INTERVAL = 1000;
 void loop() {
   static unsigned long samplingTime = millis();
   static unsigned long printTime = millis();
@@ -85,15 +85,10 @@ void loop() {
   
   if(millis()-samplingTime > READ_INTERVAL){
 
-    for (int i = 0; i < ArrayLength; i++) {
-      tempArray[i] = ds.getTempC();
-      delay(20);
-    }
-    temperature = averagearray(tempArray, ArrayLength);
-
+    temperature = ds.getTempC();
  
     for (int i = 0; i < ArrayLength; i++) {
-      pHArray[i]=analogRead(SensorPin);
+      pHArray[i] = analogRead(SensorPin);
       delay(20);
     }
     voltage = averagearray(pHArray, ArrayLength)*5.0/1024;
