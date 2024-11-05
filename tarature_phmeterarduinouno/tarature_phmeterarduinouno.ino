@@ -7,7 +7,7 @@ float temperature;
 
 //inizializzazione sensore temperatura 
 #include <DS18B20.h>
-DS18B20 ds(3);
+DS18B20 ds(4);
 uint8_t address[] = {40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
 
@@ -49,8 +49,8 @@ int pHArray[ArrayLength];
 int tempArray[ArrayLength];  //Store the average value of the sensor feedback
 
 //Parametri necessari per la linearizzazione
-float calibph7=1.18;
-float calibph4=0.20;
+float calibph7=1.647;
+float calibph4=0.35;
 float m; 
 float b;
 
@@ -76,7 +76,6 @@ void setup() {
 // VERO -> pH; FALSO -> TDS
 
 StaticJsonDocument<200> jsonBuffer;
-bool turno = false;
 const int READ_INTERVAL = 1000;
 void loop() {
   static unsigned long samplingTime = millis();
@@ -104,6 +103,7 @@ void loop() {
     jsonBuffer["temperatura"] = temperature;
     jsonBuffer["pH"] = pHValue;
     jsonBuffer["conducimetro"] = tdsValue*1.56;
+    jsonBuffer["voltage"] = voltage;
     sendData(jsonBuffer);
   }
   //Gestione del display e delle variabili collegate alla dashboard a seconda della sostanza
