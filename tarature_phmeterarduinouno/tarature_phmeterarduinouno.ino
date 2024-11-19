@@ -1,13 +1,17 @@
+
 #include <ArduinoJson.h>
 #include <ArduinoJson.hpp>
 
-float tdsValue;
-float temperature;
+
+
+float tdsValue1, tdsValue2;
+float temperature1, temperature2;
 
 
 //inizializzazione sensore temperatura 
 #include <DS18B20.h>
-DS18B20 ds(4);
+DS18B20 ds1(4);
+DS18B20 ds2(5);
 uint8_t address[] = {40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
 
@@ -21,9 +25,11 @@ uint8_t selected;
 
 */
 
+//#include "GravityTDS1.h"
 #include "GravityTDS.h"
-#define TdsSensorPin A1
-GravityTDS gravityTds;
+#define TdsSensorPin1 A1
+#define TdsSensorPin2 A2
+GravityTDS gravityTds1, gravityTds2;
 
 /* CALIBRAZIONE CONDUCIMETRO!!!
   1. A sensore stabilizzato, scrivere nel Serial Monitor "enter"
@@ -37,22 +43,23 @@ GravityTDS gravityTds;
 // conducimetro
 
 
-  float pHValue;
+  float pHValue1, pHValue2;
 
 
 //Alcune variabili e parametri necessari per il Sensore
-#define SensorPin A5          //pH meter Analog output to Arduino Analog Input 0
+#define SensorPin1 A5
+#define SensorPin2 A6          //pH meter Analog output to Arduino Analog Input 0
 #define Offset 0.00            //deviation compensate
 
 #define ArrayLength  40    //times of collection
-int pHArray[ArrayLength]; 
-int tempArray[ArrayLength];  //Store the average value of the sensor feedback
+int pHArray1[ArrayLength], pHArray2[ArrayLength]; 
+int tempArray1[ArrayLength], tempArray2[ArrayLength];  //Store the average value of the sensor feedback
 
 //Parametri necessari per la linearizzazione
-float calibph7=1.647;
-float calibph4=0.35;
-float m; 
-float b;
+float calibph1_7=1.647, calibph2_7=1.647;
+float calibph1_4=0.35, calibph2_4=0.35;
+float m1, m2; 
+float b1, b2;
 
 void setup() {
 
@@ -61,68 +68,118 @@ void setup() {
   delay(1500); 
 
   
-  gravityTds.setPin(TdsSensorPin);
-  gravityTds.setAref(5.0);  //reference voltage on ADC, default 5.0V on Arduino UNO 
-  gravityTds.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC 
-  gravityTds.begin();  //initialization 
+  gravityTds1.setPin(TdsSensorPin1);
+  gravityTds1.setAref(5.0);  //reference voltage on ADC, default 5.0V on Arduino UNO 
+  gravityTds1.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC 
+  gravityTds1.begin();
+  gravityTds2.setPin(TdsSensorPin2);
+  gravityTds2.setAref(5.0);  //reference voltage on ADC, default 5.0V on Arduino UNO 
+  gravityTds2.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC 
+  gravityTds2.begin();  //initialization 
  
 
 	//Retta
-	m=(4.0-7.0)/(calibph4 - calibph7);
-    b=7.0-m*calibph7;
+	m1=(4.0-7.0)/(calibph1_4 - calibph1_7);
+    b1=7.0-m1*calibph1_7;
+  m2=(4.0-7.0)/(calibph2_4 - calibph2_7);
+    b2=7.0-m2*calibph2_7;
   
 }
 
 // VERO -> pH; FALSO -> TDS
 
 StaticJsonDocument<200> jsonBuffer;
-const int READ_INTERVAL = 1000;
+const int COND_INTERVAL = 1000;
+const int PH_INTERVAL = 1000;
+const int TEMP_INTERVAL = 1000;
+
+
+
 void loop() {
-  static unsigned long samplingTime = millis();
-  static unsigned long printTime = millis();
-  static float voltage;
+  static unsigned long millisCOND = millis();
+  static unsigned long millisPH = millis();
+  static unsigned long millisTEMP = millis();
+  static float voltage1, voltage2;
   
-  if(millis()-samplingTime > READ_INTERVAL){
+  if (Serial.available() > 0){
 
-    temperature = ds.getTempC();
- 
-    for (int i = 0; i < ArrayLength; i++) {
-      pHArray[i] = analogRead(SensorPin);
-      delay(20);
+    String riga = Serial.readStringUntil('\n');
+    int index = riga.indexOf(':');
+    
+    String comando, valore;
+    if (index != -1) {
+      comando = riga.substring(0, index);
+      valore = riga.substring(index + 1);
+      Serial.print(valore);
     }
-    voltage = averagearray(pHArray, ArrayLength)*5.0/1024;
-    pHValue = m*voltage+b;
+  
+    float ritorno;
+    if (comando == "cal1") {
+      ritorno = gravityTds1.calibra(valore.c_str());
+    } else if (comando == "cal2") {
+      ritorno = gravityTds2.calibra(valore.c_str());
+    }
+  
+  }
+  
+  if(millis()-millisCOND > COND_INTERVAL){
 
-    samplingTime=millis();
+    gravityTds1.setTemperature(temperature1);
+    gravityTds1.update();
+    tdsValue1 = gravityTds1.getTdsValue(); 
 
-    gravityTds.setTemperature(temperature);
-    gravityTds.update();
-    tdsValue = gravityTds.getTdsValue(); 
-     
+    jsonBuffer["conducimetro1"] = tdsValue1*1.56;
 
-    jsonBuffer["temperatura"] = temperature;
-    jsonBuffer["pH"] = pHValue;
-    jsonBuffer["conducimetro"] = tdsValue*1.56;
-    jsonBuffer["voltage"] = voltage;
+    gravityTds2.setTemperature(temperature2);
+    gravityTds2.update();
+    tdsValue2 = gravityTds2.getTdsValue(); 
+
+    jsonBuffer["conducimetro2"] = tdsValue2*1.56;
+
+    millisCOND=millis();
+
     sendData(jsonBuffer);
   }
-  //Gestione del display e delle variabili collegate alla dashboard a seconda della sostanza
-  //Verifica soluzione neutra
-  // Your code here 
-  
-  /*
-  Serial.print(tdsValue,0);
-  Serial.print(" ppm - ");
-  Serial.print(tdsValue*1.56,0);
-  Serial.print(" uS/cm - ");
-  Serial.print(temperature);
-  Serial.print("°C - ");
-  if (ds.hasAlarm()){
-    Serial.println("ALARM");
-  } else {
-    Serial.println();
+
+  if(millis()-millisPH > PH_INTERVAL){
+
+    for (int i = 0; i < ArrayLength; i++) {
+      pHArray1[i] = analogRead(SensorPin1);
+      delay(20);
+    }
+    voltage1 = averagearray(pHArray1, ArrayLength)*5.0/1024;
+    pHValue1 = m1*voltage1+b1;
+    jsonBuffer["pH1"] = pHValue1;
+    jsonBuffer["voltage1"] = voltage1;
+
+    for (int i = 0; i < ArrayLength; i++) {
+      pHArray2[i] = analogRead(SensorPin2);
+      delay(20);
+    }
+    voltage2 = averagearray(pHArray2, ArrayLength)*5.0/1024;
+    pHValue2 = m2*voltage2+b2;
+    jsonBuffer["pH2"] = pHValue2;
+    jsonBuffer["voltage2"] = voltage2;
+
+    millisPH=millis();
+    
+    sendData(jsonBuffer);
+    
   }
-  */
+
+  if(millis()-millisTEMP > TEMP_INTERVAL) {
+
+    temperature1 = ds1.getTempC();
+    jsonBuffer["temperatura1"] = temperature1;
+    temperature2 = ds2.getTempC();
+    jsonBuffer["temperatura2"] = temperature2;
+
+    millisTEMP=millis();
+    
+    sendData(jsonBuffer);
+    
+  }
+  
 }
 
 void sendData(StaticJsonDocument<200> &jBuff){
