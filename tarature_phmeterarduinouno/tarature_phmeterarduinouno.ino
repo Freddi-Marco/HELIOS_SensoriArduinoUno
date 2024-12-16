@@ -1,4 +1,5 @@
 
+
 #include <ArduinoJson.h>
 #include <ArduinoJson.hpp>
 
@@ -19,7 +20,7 @@ uint8_t selected;
 /* 
 
   Per reperire la libreria GravityTDS navigare a questo link:
-  https://github.com/CoccodrillooXDS/GravityTDS/releases/tag/v1.0.1
+  https://github.com/MRcodino07/HELIOS_SensoriArduinoUno/tree/main/Librerie
 
   Poi in Arduino IDE andare su Sketch/Include libraries/Add .zip e aggiungere il file scaricato NON ESTRATTO!
 
@@ -61,6 +62,7 @@ float calibph1_4=0.35, calibph2_4=0.35;
 float m1, m2; 
 float b1, b2;
 
+StaticJsonDocument<200> jsonBuffer;
 
 float calcRetta(float ph4, float ph7){
   return (4.0-7.0)/(ph4 - ph7);
@@ -68,6 +70,66 @@ float calcRetta(float ph4, float ph7){
 float calcB(float m, float ph7){
   return 7.0-m*ph7;
 }
+
+
+// chiamata in loop quando c'è un comando dalla seriale (mandato dal raspberry qui per arduino)
+void gestSerialCmd() {
+    static String riga;
+
+    riga = Serial.readString();  // legge il json come stringa
+    deserializeJson(jsonBuffer, riga); // lo converte in jsonBuffer
+
+    if (jsonBuffer.containsKey("cal1")) {
+      gravityTds1.setTemperature(temperature1); 
+      jsonBuffer["ritorno"] = gravityTds1.calibra(jsonBuffer["cal1"]);
+      sendData(jsonBuffer);
+    } 
+    else if (jsonBuffer.containsKey("cal2")) { 
+      gravityTds1.setTemperature(temperature2);
+      jsonBuffer["ritorno"] = gravityTds2.calibra(jsonBuffer["cal2"]);
+      sendData(jsonBuffer);
+    }
+    else if (jsonBuffer.containsKey("cal ph")) { // { "cal ph": 1, "ph4":0.5, "ph7":2.4 }
+      if (jsonBuffer["cal ph"]== 1){
+        calibph1_4=jsonBuffer["ph4"];
+        calibph1_7=jsonBuffer["ph7"];
+        m1=calcRetta(calibph1_4,calibph1_7);
+        b1=calcB(m1,calibph1_7);
+      }
+      else { // ph 2
+        calibph2_4=jsonBuffer["ph4"];
+        calibph2_7=jsonBuffer["ph7"];
+        m2=calcRetta(calibph2_4,calibph2_7);
+        b2=calcB(m2,calibph2_7);
+      }
+    }
+    // eventuali altri comandi... 
+}
+
+// chiamat ain setup per calibrare i due ph
+void calibratePh(){
+  pinMode(LED_BUILTIN, OUTPUT);  // Initialize the LED_BUILTIN pin as an output
+
+  for (int i = 1; i<=2; i++){
+    jsonBuffer.clear();
+    // chiediamo parametri del  sensore PH i-esimo (1 o 2)
+    jsonBuffer["cal ph"] = i;
+    sendData(jsonBuffer);
+    while (!Serial.available()){ // aspettiamo risposta da raspberry
+      delay(500);
+    }
+    gestSerialCmd();
+
+    // facciamo lampeggiare il led per capire che va tutto bene
+    for (int k=0;k<4;k++){
+        digitalWrite(LED_BUILTIN, LOW);
+        delay(100);
+        digitalWrite(LED_BUILTIN, HIGH);  
+        delay(100);                     
+    }
+  }
+}
+
 
 void setup() {
 
@@ -92,58 +154,27 @@ void setup() {
   b1=calcB(m1,calibph1_7);
 	m2=calcRetta(calibph2_4,calibph2_7);
   b2=calcB(m2,calibph2_7);
-  
+
+  calibratePh();
 }
+
+
 
 // VERO -> pH; FALSO -> TDS
 
-StaticJsonDocument<200> jsonBuffer;
 const int COND_INTERVAL = 5000;
 const int PH_INTERVAL = 5000;
 const int TEMP_INTERVAL = 5000;
-
-
 
 void loop() {
   static unsigned long millisCOND = millis();
   static unsigned long millisPH = millis();
   static unsigned long millisTEMP = millis();
   static float voltage1, voltage2;
-  
+
+  // qualche comando da Raspberry?
   if (Serial.available()){ 
-    static String riga;
-
-    riga = Serial.readString();  // legge il json come stringa
-    deserializeJson(jsonBuffer, riga); // lo converte in jsonBuffer
-
-    if (jsonBuffer.containsKey("cal1")) {
-      gravityTds1.setTemperature(temperature1); 
-      jsonBuffer["ritorno"] = gravityTds1.calibra(jsonBuffer["cal1"]);
-      sendData(jsonBuffer);
-    } 
-    else if (jsonBuffer.containsKey("cal2")) { 
-      gravityTds1.setTemperature(temperature2);
-      jsonBuffer["ritorno"] = gravityTds2.calibra(jsonBuffer["cal2"]);
-      sendData(jsonBuffer);
-    }
-    else if (jsonBuffer.containsKey("cal ph")) { // { "cal ph": 1, "ph4":0.5, "ph7":2.4 }
-      if (jsonBuffer["cal ph"]== 1){
-        calibph1_4=jsonBuffer["ph4"];
-        calibph1_7=jsonBuffer["ph7"];
-        m1=calcRetta(calibph1_4,calibph1_7);
-        b1=calcB(m1,calibph1_7);
-        jsonBuffer["ritorno"] = true;
-      }
-      else { // ph 2
-        calibph2_4=jsonBuffer["ph4"];
-        calibph2_7=jsonBuffer["ph7"];
-        m2=calcRetta(calibph2_4,calibph2_7);
-        b2=calcB(m2,calibph2_7);
-        jsonBuffer["ritorno"] = true;
-      }
-      sendData(jsonBuffer);
-    }
-    // eventuali altri comandi... 
+    gestSerialCmd();
   } 
   
   
