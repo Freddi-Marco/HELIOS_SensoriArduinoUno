@@ -16,7 +16,6 @@ DS18B20 ds2(5);
 uint8_t address[] = {40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
 
-
 /* 
 
   Per reperire la libreria GravityTDS navigare a questo link:
@@ -147,7 +146,7 @@ void setup() {
   gravityTds2.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC 
   gravityTds2.begin();  //initialization 
  
-
+  pinMode(8, OUTPUT); //Pin della valvola
 
 	//Retta
 	m1=calcRetta(calibph1_4,calibph1_7);
@@ -193,6 +192,15 @@ void loop() {
     jsonBuffer["conducimetro2"] = tdsValue2*1.56;
 
     millisCOND=millis();
+
+    if((tdsValue1*1.56) > 1200){
+      jsonBuffer["valvolaAperta"] = 1;
+      digitalWrite (8, HIGH);
+    }
+    else{
+      jsonBuffer["valvolaAperta"] = 0;
+      digitalWrite (8, LOW);
+    }
 
     sendData(jsonBuffer);
   }
