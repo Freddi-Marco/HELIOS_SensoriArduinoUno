@@ -31,6 +31,8 @@ uint8_t selected;
 #define TdsSensorPin2 A2
 GravityTDS gravityTds1, gravityTds2;
 
+#define Ventola 8
+
 /* CALIBRAZIONE CONDUCIMETRO!!!
   1. A sensore stabilizzato, scrivere nel Serial Monitor "enter"
   2. Scrivere successivamente "cal:" con in aggiunta la conducibilità della sostanza esaminata
