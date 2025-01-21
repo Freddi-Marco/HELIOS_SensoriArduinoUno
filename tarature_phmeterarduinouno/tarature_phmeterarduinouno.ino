@@ -107,7 +107,7 @@ void gestSerialCmd() {
     // eventuali altri comandi... 
 }
 
-// chiamat ain setup per calibrare i due ph
+// Funzione per la calibrazione dei due ph
 void calibratePh(){
   pinMode(LED_BUILTIN, OUTPUT);  // Initialize the LED_BUILTIN pin as an output
 
@@ -128,6 +128,29 @@ void calibratePh(){
         digitalWrite(LED_BUILTIN, HIGH);  
         delay(100);                     
     }
+  }
+}
+
+
+// Variabili e costanti per la gestione dell'elettrovalvola
+bool aperto = false;
+#define MINIMO 800;
+#define MASSIMO 1400;
+// Metodo che apre o chiude l'elettrovalvola in base
+void gestioneValvola() {
+  if (aperto || (((tdsValue1+tdsValue2)/2) *1.56) < MINIMO) {
+    jsonBuffer["valvolaAperta"] = 1;
+    digitalWrite (VALVOLA, HIGH);
+
+    if ((((tdsValue1+tdsValue2)/2) *1.56) < MASSIMO) {
+      aperto = true;
+    } else {
+      aperto = false;
+    }
+
+  } else {
+    jsonBuffer["valvolaAperta"] = 0;
+    digitalWrite (VALVOLA, LOW);
   }
 }
 
@@ -195,14 +218,7 @@ void loop() {
 
     millisCOND=millis();
 
-    if(( ((tdsValue1+tdsValue2)/2) *1.56) > 1200){
-      jsonBuffer["valvolaAperta"] = 1;
-      digitalWrite (VALVOLA, HIGH);
-    }
-    else{
-      jsonBuffer["valvolaAperta"] = 0;
-      digitalWrite (VALVOLA, LOW);
-    }
+    gestioneValvola()
 
     sendData(jsonBuffer);
   }
