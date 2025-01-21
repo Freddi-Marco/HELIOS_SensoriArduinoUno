@@ -134,15 +134,15 @@ void calibratePh(){
 
 // Variabili e costanti per la gestione dell'elettrovalvola
 bool aperto = false;
-#define MINIMO 800;
-#define MASSIMO 1400;
+const int MINIMO = 800;
+const int MASSIMO = 1400;
 // Metodo che apre o chiude l'elettrovalvola in base
 void gestioneValvola() {
-  if (aperto || (((tdsValue1+tdsValue2)/2) *1.56) < MINIMO) {
+  if (aperto || ((tdsValue1+tdsValue2)/2) * 1.56 < MINIMO) {
     jsonBuffer["valvolaAperta"] = 1;
     digitalWrite (VALVOLA, HIGH);
 
-    if ((((tdsValue1+tdsValue2)/2) *1.56) < MASSIMO) {
+    if (((tdsValue1+tdsValue2)/2) *1.56 < MASSIMO) {
       aperto = true;
     } else {
       aperto = false;
@@ -218,7 +218,7 @@ void loop() {
 
     millisCOND=millis();
 
-    gestioneValvola()
+    gestioneValvola();
 
     sendData(jsonBuffer);
   }
