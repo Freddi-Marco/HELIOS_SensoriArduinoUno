@@ -195,7 +195,7 @@ void loop() {
 
     millisCOND=millis();
 
-    if((tdsValue1*1.56) > 1200){
+    if(( ((tdsValue1+tdsValue2)/2) *1.56) > 1200){
       jsonBuffer["valvolaAperta"] = 1;
       digitalWrite (VALVOLA, HIGH);
     }
