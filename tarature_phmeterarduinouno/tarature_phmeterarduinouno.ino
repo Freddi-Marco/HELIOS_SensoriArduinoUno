@@ -13,7 +13,7 @@ float temperature1, temperature2;
 #include <DS18B20.h>
 DS18B20 ds1(3);
 DS18B20 ds2(5);
-uint8_t address[] = {40, 250, 31, 218, 4, 0, 0, 52};
+uint8_t address[] ={40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
 
 /* 
@@ -31,7 +31,7 @@ uint8_t selected;
 #define TdsSensorPin2 A2
 GravityTDS gravityTds1, gravityTds2;
 
-#define Ventola 8
+#define VALVOLA 8
 
 /* CALIBRAZIONE CONDUCIMETRO!!!
   1. A sensore stabilizzato, scrivere nel Serial Monitor "enter"
@@ -197,11 +197,11 @@ void loop() {
 
     if((tdsValue1*1.56) > 1200){
       jsonBuffer["valvolaAperta"] = 1;
-      digitalWrite (8, HIGH);
+      digitalWrite (VALVOLA, HIGH);
     }
     else{
       jsonBuffer["valvolaAperta"] = 0;
-      digitalWrite (8, LOW);
+      digitalWrite (VALVOLA, LOW);
     }
 
     sendData(jsonBuffer);
