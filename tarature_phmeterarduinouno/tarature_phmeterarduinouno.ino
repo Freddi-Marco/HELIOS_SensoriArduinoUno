@@ -1,5 +1,6 @@
 
 
+
 #include <ArduinoJson.h>
 #include <ArduinoJson.hpp>
 
@@ -103,6 +104,7 @@ void gestSerialCmd() {
         m2=calcRetta(calibph2_4,calibph2_7);
         b2=calcB(m2,calibph2_7);
       }
+      jsonBuffer.clear(); 
     }
     // eventuali altri comandi... 
 }
@@ -138,11 +140,18 @@ const int MINIMO = 800;
 const int MASSIMO = 1400;
 // Metodo che apre o chiude l'elettrovalvola in base
 void gestioneValvola() {
-  if (aperto || ((tdsValue1+tdsValue2)/2) * 1.56 < MINIMO) {
+  float cond = ((tdsValue1+tdsValue2)/2) * 1.56;
+  if (aperto && cond > MASSIMO || !aperto && cond < MINIMO) {
+    aperto = !aperto;
+    jsonBuffer["valvolaAperta"] = aperto;
+    digitalWrite (VALVOLA, aperto ? HIGH : LOW);
+  }
+/* vecchio codice!!!
+  if (aperto || cond < MINIMO) {
     jsonBuffer["valvolaAperta"] = 1;
     digitalWrite (VALVOLA, HIGH);
 
-    if (((tdsValue1+tdsValue2)/2) *1.56 < MASSIMO) {
+    if (cond < MASSIMO) {
       aperto = true;
     } else {
       aperto = false;
@@ -152,6 +161,7 @@ void gestioneValvola() {
     jsonBuffer["valvolaAperta"] = 0;
     digitalWrite (VALVOLA, LOW);
   }
+  */
 }
 
 
@@ -180,6 +190,9 @@ void setup() {
   b2=calcB(m2,calibph2_7);
 
   calibratePh();
+  
+  jsonBuffer["valvolaAperta"] = aperto;
+  sendData(jsonBuffer);
 }
 
 
