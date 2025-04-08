@@ -12,8 +12,8 @@ float temperature1, temperature2;
 
 //inizializzazione sensore temperatura 
 #include <DS18B20.h>
-DS18B20 ds1(3);
-DS18B20 ds2(5);
+DS18B20 ds1(6);
+DS18B20 ds2(7);
 uint8_t address[] ={40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
 
@@ -28,11 +28,11 @@ uint8_t selected;
 
 //#include "GravityTDS1.h"
 #include "GravityTDS.h"
-#define TdsSensorPin1 A1
-#define TdsSensorPin2 A2
+#define TdsSensorPin1 A3
+#define TdsSensorPin2 A4
 GravityTDS gravityTds1, gravityTds2;
 
-#define VALVOLA 8
+#define VALVOLA 4
 
 /* CALIBRAZIONE CONDUCIMETRO!!!
   1. A sensore stabilizzato, scrivere nel Serial Monitor "enter"
@@ -50,8 +50,8 @@ GravityTDS gravityTds1, gravityTds2;
 
 
 //Alcune variabili e parametri necessari per il Sensore
-#define SensorPin1 A5
-#define SensorPin2 A6          //pH meter Analog output to Arduino Analog Input 0
+#define SensorPin1 A0
+#define SensorPin2 A1          //pH meter Analog output to Arduino Analog Input 0
 #define Offset 0.00            //deviation compensate
 
 #define ArrayLength  40    //times of collection
@@ -181,7 +181,7 @@ void setup() {
   gravityTds2.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC 
   gravityTds2.begin();  //initialization 
  
-  pinMode(8, OUTPUT); //Pin della valvola
+  pinMode(VALVOLA, OUTPUT); //Pin della valvola
 
 	//Retta
 	m1=calcRetta(calibph1_4,calibph1_7);
