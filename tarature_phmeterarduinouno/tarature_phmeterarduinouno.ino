@@ -12,8 +12,8 @@ float temperature1, temperature2;
 
 //inizializzazione sensore temperatura 
 #include <DS18B20.h>
-DS18B20 ds1(6);
-DS18B20 ds2(7);
+DS18B20 ds1(5);
+DS18B20 ds2(6);
 uint8_t address[] ={40, 250, 31, 218, 4, 0, 0, 52};
 uint8_t selected;
 
@@ -87,7 +87,7 @@ void gestSerialCmd() {
       sendData(jsonBuffer);
     } 
     else if (jsonBuffer.containsKey("cal2")) { 
-      gravityTds1.setTemperature(temperature2);
+      gravityTds2.setTemperature(temperature2);
       jsonBuffer["ritorno"] = gravityTds2.calibra(jsonBuffer["cal2"]);
       sendData(jsonBuffer);
     }
